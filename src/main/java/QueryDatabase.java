@@ -19,13 +19,19 @@ public class QueryDatabase {
     }
 
     public static void main(String[] args) {
+        if (args.length < 2 || !args[0].equals("search")) {
+            System.err.println("Usage: java -jar shopdb.jar search <last_name>");
+            System.exit(1);
+        }
+        String lastName = args[1];
+
         try {
             Connection connection = getConnection();
-            PreparedStatement ps = connection.prepareStatement("SELECT last_name, first_name FROM customers ORDER BY last_name, first_name, id;");
-            ResultSet rs = ps.executeQuery();
+            PreparedStatement ps = connection.prepareStatement("SELECT first_name FROM customers WHERE last_name = ? ORDER BY first_name, id;");
+            ps.setString(1, lastName);
 
+            ResultSet rs = ps.executeQuery();
             while (rs.next()) {
-                String lastName  = rs.getString("last_name");
                 String firstName = rs.getString("first_name");
                 System.out.println(lastName + " " + firstName);
             }
