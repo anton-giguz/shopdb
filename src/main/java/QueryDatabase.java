@@ -187,15 +187,32 @@ public class QueryDatabase {
     private static void doStat() throws IOException, SQLException, CriteriaException {
         readDates();
 
-        PreparedStatement ps = connection.prepareStatement("SELECT count(*) AS days " +
+        PreparedStatement ps = connection.prepareStatement("SELECT count(*) AS total_days " +
             "FROM generate_series(?::timestamp, ?::timestamp, '1 day'::interval) AS day WHERE extract(isodow from day) < 6");
         ps.setString(1, format.format(startDate));
         ps.setString(2, format.format(endDate));
-
         ResultSet rs = ps.executeQuery();
         if (rs.next()) {
-            builder.add("totalDays", rs.getInt("days"));
+            builder.add("totalDays", rs.getInt("total_days"));
         }
+
+        JsonArrayBuilder customers = Json.createArrayBuilder();
+
+        ps = connection.prepareStatement("SELECT last_name, first_name, sum(products.price) AS total_expenses " +
+            "FROM customers JOIN purchases ON (customers.id = purchases.customer) JOIN products ON (purchases.product = products.id) " +
+            "WHERE purchase_date BETWEEN ?::date AND ?::date AND extract(isodow from purchase_date) < 6 GROUP BY last_name, first_name, customers.id " +
+            "ORDER BY total_expenses DESC, last_name, first_name, customers.id;");
+        ps.setString(1, format.format(startDate));
+        ps.setString(2, format.format(endDate));
+        rs = ps.executeQuery();
+        while (rs.next()) {
+            JsonObjectBuilder customer = Json.createObjectBuilder();
+            customer.add("name", rs.getString("last_name") + " " + rs.getString("first_name"));
+            customer.add("totalExpenses", rs.getInt("total_expenses"));
+            customers.add(customer);
+        }
+
+        builder.add("customers", customers);
     }
 
 
