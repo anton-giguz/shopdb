@@ -9,6 +9,12 @@ import javax.json.*;
 
 public class QueryDatabase {
 
+    private static String command;
+    private static String inputJson;
+    private static String outputJson;
+    private static JsonObjectBuilder builder;
+    private static Connection connection;
+
     private static class CriteriaException extends Exception {
         public CriteriaException(String message) {
             super(message);
@@ -32,8 +38,8 @@ public class QueryDatabase {
     }
 
 
-    private static JsonArray getCriteriaArray(String filename) throws IOException, CriteriaException {
-        JsonReader reader = Json.createReader(Files.newBufferedReader(Paths.get(filename)));
+    private static JsonArray getCriteriaArray() throws IOException, CriteriaException {
+        JsonReader reader = Json.createReader(Files.newBufferedReader(Paths.get(inputJson)));
         JsonValue criterias = reader.readObject().get("criterias");
         reader.close();
 
@@ -70,29 +76,17 @@ public class QueryDatabase {
     }
 
 
-    private static void writeJson(String filename, JsonObject object) throws IOException {
-        JsonWriter writer = Json.createWriter(Files.newBufferedWriter(Paths.get(filename)));
-        writer.writeObject(object);
+    private static void writeJson() throws IOException {
+        JsonWriter writer = Json.createWriter(Files.newBufferedWriter(Paths.get(outputJson)));
+        writer.writeObject(builder.build());
         writer.close();
     }
 
 
-    public static void main(String[] args) {
-        if (args.length < 3 || !args[0].equals("search")) {
-            System.err.println("Usage: java -jar shopdb.jar search <input>.json <output>.json");
-            System.exit(1);
-        }
-        String inputJson  = args[1];
-        String outputJson = args[2];
-
-        JsonObjectBuilder builder = Json.createObjectBuilder();
-        builder.add("type", "search");
+    private static void doSearch() throws IOException, SQLException, CriteriaException {
         JsonArrayBuilder results = Json.createArrayBuilder();
 
-        try {
-            Connection connection = getConnection();
-
-            for (JsonValue criteria : getCriteriaArray(inputJson)) {
+            for (JsonValue criteria : getCriteriaArray()) {
                 PreparedStatement ps = null;
                 JsonObject item = getCriteriaItem(criteria);
                 Set<String> keys = item.keySet();
@@ -152,6 +146,24 @@ public class QueryDatabase {
             }
 
             builder.add("results", results);
+    }
+
+
+    public static void main(String[] args) {
+        if (args.length < 3 || !args[0].equals("search")) {
+            System.err.println("Usage: java -jar shopdb.jar search <input>.json <output>.json");
+            System.exit(1);
+        }
+        command    = args[0];
+        inputJson  = args[1];
+        outputJson = args[2];
+
+        builder = Json.createObjectBuilder();
+        builder.add("type", command);
+
+        try {
+            connection = getConnection();
+            doSearch();
         } catch (Exception e) {
             builder = Json.createObjectBuilder();
             builder.add("type", "error");
@@ -159,7 +171,7 @@ public class QueryDatabase {
         }
 
         try {
-            writeJson(outputJson, builder.build());
+            writeJson();
         } catch (IOException e) {
             System.err.println(e.getMessage());
             System.exit(1);
