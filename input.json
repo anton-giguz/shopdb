@@ -4,6 +4,7 @@
         {"productName": "Хлеб", "minTimes": 3},
         {"productName": "Сыр", "minTimes": 2},
         {"lastName": "Иванов"},
-        {"minExpenses": 101, "maxExpenses": 200}
+        {"minExpenses": 101, "maxExpenses": 200},
+        {"badCustomers": 3}
     ]
 }

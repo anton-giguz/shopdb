@@ -127,6 +127,14 @@ public class QueryDatabase {
                     ps.setInt(1, minExpenses);
                     ps.setInt(2, maxExpenses);
 
+                } else if (keys.contains("badCustomers") && keys.size() == 1) {
+                    int badCustomers = getInt(item, "badCustomers");
+                    ps = connection.prepareStatement("SELECT last_name, first_name " +
+                        "FROM customers JOIN purchases ON (customers.id = purchases.customer) " +
+                        "GROUP BY last_name, first_name, customers.id " +
+                        "ORDER BY count(*), last_name, first_name, customers.id LIMIT ?;");
+                    ps.setInt(1, badCustomers);
+
                 } else {
                     throw new CriteriaException("Unknown criteria");
                 }
