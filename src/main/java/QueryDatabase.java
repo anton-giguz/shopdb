@@ -33,7 +33,10 @@ public class QueryDatabase {
 
 
     private static JsonArray getCriteriaArray(String filename) throws IOException, CriteriaException {
-        JsonValue criterias = Json.createReader(Files.newBufferedReader(Paths.get(filename))).readObject().get("criterias");
+        JsonReader reader = Json.createReader(Files.newBufferedReader(Paths.get(filename)));
+        JsonValue criterias = reader.readObject().get("criterias");
+        reader.close();
+
         if (criterias == null || criterias.getValueType() != JsonValue.ValueType.ARRAY || ((JsonArray)criterias).isEmpty()) {
             throw new CriteriaException("No criterias");
         }
@@ -67,12 +70,24 @@ public class QueryDatabase {
     }
 
 
+    private static void writeJson(String filename, JsonObject object) throws IOException {
+        JsonWriter writer = Json.createWriter(Files.newBufferedWriter(Paths.get(filename)));
+        writer.writeObject(object);
+        writer.close();
+    }
+
+
     public static void main(String[] args) {
-        if (args.length < 2 || !args[0].equals("search")) {
-            System.err.println("Usage: java -jar shopdb.jar search <input>.json");
+        if (args.length < 3 || !args[0].equals("search")) {
+            System.err.println("Usage: java -jar shopdb.jar search <input>.json <output>.json");
             System.exit(1);
         }
-        String inputJson = args[1];
+        String inputJson  = args[1];
+        String outputJson = args[2];
+
+        JsonObjectBuilder builder = Json.createObjectBuilder();
+        builder.add("type", "search");
+        JsonArrayBuilder results = Json.createArrayBuilder();
 
         try {
             Connection connection = getConnection();
@@ -81,6 +96,10 @@ public class QueryDatabase {
                 PreparedStatement ps = null;
                 JsonObject item = getCriteriaItem(criteria);
                 Set<String> keys = item.keySet();
+
+                JsonObjectBuilder resultBuilder = Json.createObjectBuilder();
+                resultBuilder.add("criteria", criteria);
+                JsonArrayBuilder rows = Json.createArrayBuilder();
 
                 if (keys.contains("lastName") && keys.size() == 1) {
                     String lastName = getString(item, "lastName");
@@ -102,13 +121,28 @@ public class QueryDatabase {
 
                 ResultSet rs = ps.executeQuery();
                 while (rs.next()) {
-                    String lastName  = rs.getString("last_name");
-                    String firstName = rs.getString("first_name");
-                    System.out.println(lastName + " " + firstName);
+                    JsonObjectBuilder rowBuilder = Json.createObjectBuilder();
+                    rowBuilder.add("lastName",  rs.getString("last_name"));
+                    rowBuilder.add("firstName", rs.getString("first_name"));
+                    rows.add(rowBuilder);
                 }
+
+                resultBuilder.add("results", rows);
+                results.add(resultBuilder);
             }
+
+            builder.add("results", results);
         } catch (Exception e) {
-            System.err.println(e);
+            builder = Json.createObjectBuilder();
+            builder.add("type", "error");
+            builder.add("message", e.toString());
+        }
+
+        try {
+            writeJson(outputJson, builder.build());
+        } catch (IOException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
         } 
     }
 
