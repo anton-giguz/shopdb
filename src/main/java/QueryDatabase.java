@@ -106,6 +106,7 @@ public class QueryDatabase {
                     ps = connection.prepareStatement("SELECT last_name, first_name " +
                         "FROM customers WHERE last_name = ? ORDER BY last_name, first_name, id;");
                     ps.setString(1, lastName);
+
                 } else if (keys.contains("productName") && keys.contains("minTimes") && keys.size() == 2) {
                     String productName = getString(item, "productName");
                     int minTimes = getInt(item, "minTimes");
@@ -115,6 +116,17 @@ public class QueryDatabase {
                         "HAVING count(*) >= ? ORDER BY last_name, first_name, customers.id;");
                     ps.setString(1, productName);
                     ps.setInt(2, minTimes);
+
+                } else if (keys.contains("minExpenses") && keys.contains("maxExpenses") && keys.size() == 2) {
+                    int minExpenses = getInt(item, "minExpenses");
+                    int maxExpenses = getInt(item, "maxExpenses");
+                    ps = connection.prepareStatement("SELECT last_name, first_name " +
+                        "FROM customers JOIN purchases ON (customers.id = purchases.customer) JOIN products ON (purchases.product = products.id) " +
+                        "GROUP BY last_name, first_name, customers.id " +
+                        "HAVING sum(products.price) BETWEEN ? AND ? ORDER BY last_name, first_name, customers.id;");
+                    ps.setInt(1, minExpenses);
+                    ps.setInt(2, maxExpenses);
+
                 } else {
                     throw new CriteriaException("Unknown criteria");
                 }
