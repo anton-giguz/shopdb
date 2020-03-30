@@ -198,16 +198,34 @@ public class QueryDatabase {
 
         JsonArrayBuilder customers = Json.createArrayBuilder();
 
-        ps = connection.prepareStatement("SELECT last_name, first_name, sum(products.price) AS total_expenses " +
+        ps = connection.prepareStatement("SELECT last_name, first_name, customers.id AS customer, sum(products.price) AS total_expenses " +
             "FROM customers JOIN purchases ON (customers.id = purchases.customer) JOIN products ON (purchases.product = products.id) " +
             "WHERE purchase_date BETWEEN ?::date AND ?::date AND extract(isodow from purchase_date) < 6 GROUP BY last_name, first_name, customers.id " +
-            "ORDER BY total_expenses DESC, last_name, first_name, customers.id;");
+            "ORDER BY total_expenses DESC, last_name, first_name, customers.id");
         ps.setString(1, format.format(startDate));
         ps.setString(2, format.format(endDate));
         rs = ps.executeQuery();
         while (rs.next()) {
             JsonObjectBuilder customer = Json.createObjectBuilder();
             customer.add("name", rs.getString("last_name") + " " + rs.getString("first_name"));
+            JsonArrayBuilder purchases = Json.createArrayBuilder();
+
+            PreparedStatement ps_ = connection.prepareStatement("SELECT name, sum(price) AS expenses " +
+                "FROM purchases JOIN products ON (purchases.product = products.id) " +
+                "WHERE purchase_date BETWEEN ?::date AND ?::date AND extract(isodow from purchase_date) < 6 AND customer = ? " +
+                "GROUP BY name, products.id ORDER BY expenses DESC, name, products.id");
+            ps_.setString(1, format.format(startDate));
+            ps_.setString(2, format.format(endDate));
+            ps_.setInt(3, rs.getInt("customer"));
+            ResultSet rs_ = ps_.executeQuery();
+            while (rs_.next()) {
+                JsonObjectBuilder purchase = Json.createObjectBuilder();
+                purchase.add("name", rs_.getString("name"));
+                purchase.add("expenses", rs_.getInt("expenses"));
+                purchases.add(purchase);
+            }
+
+            customer.add("purchases", purchases);
             customer.add("totalExpenses", rs.getInt("total_expenses"));
             customers.add(customer);
         }
