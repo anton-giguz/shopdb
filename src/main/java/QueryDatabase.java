@@ -198,6 +198,8 @@ public class QueryDatabase {
 
         JsonArrayBuilder customers = Json.createArrayBuilder();
 
+        int totalExpenses = 0, count = 0;
+
         ps = connection.prepareStatement("SELECT last_name, first_name, customers.id AS customer, sum(products.price) AS total_expenses " +
             "FROM customers JOIN purchases ON (customers.id = purchases.customer) JOIN products ON (purchases.product = products.id) " +
             "WHERE purchase_date BETWEEN ?::date AND ?::date AND extract(isodow from purchase_date) < 6 GROUP BY last_name, first_name, customers.id " +
@@ -228,9 +230,16 @@ public class QueryDatabase {
             customer.add("purchases", purchases);
             customer.add("totalExpenses", rs.getInt("total_expenses"));
             customers.add(customer);
+
+            totalExpenses += rs.getInt("total_expenses");
+            count++;
         }
 
         builder.add("customers", customers);
+        builder.add("totalExpenses", totalExpenses);
+        if (count > 0) {
+            builder.add("avgExpenses", (double)totalExpenses / count);
+        }
     }
 
 
